@@ -198,10 +198,26 @@ func AskPublic(npType string) string {
 	if npType == "Enterprise" {
 		namespace = append(namespace, "Inner public (Only enterprise members can see this repository)")
 	}
-	public := interact.SelectOne(
-		"Please choose this project's public type: (all projects will apply)",
-		namespace,
-		"",
-	)
+	ques := "Please choose this project's public type: (all projects will apply)"
+	public := selectOne(namespace, ques)
 	return public
+}
+
+func AskError() string {
+	howTo := []string{"Exit and fix them",
+		"Skip them"}
+	ques := "There are errors on some dirs, what would you like to do?"
+	return selectOne(howTo, ques)
+}
+
+func AskExist() string {
+	howTo := []string{"Exit and fix them",
+		"Overwrite the remote (same as git push --force, you need exactly know what you do before you select this item)",
+		"Skip them"}
+	ques := "The are some projects name already exists, what would you like to do?"
+	return selectOne(howTo, ques)
+}
+
+func selectOne(items []string, ques string) string {
+	return 	interact.SelectOne(ques, items, "",)
 }

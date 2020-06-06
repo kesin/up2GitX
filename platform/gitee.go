@@ -96,6 +96,16 @@ func syncGitee(c *gcli.Command, args []string) error {
 	// show results
 	showRepoRes(repoRes)
 
+	// ask for exist and error details
+	asErr := share.AskError()
+	if asErr == "0" {
+		return nil
+	}
+	asExi := share.AskExist()
+	if asExi == "0" {
+		return nil
+	}
+	fmt.Println(asExi)
 	return nil
 }
 
