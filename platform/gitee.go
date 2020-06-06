@@ -1,9 +1,13 @@
 package platform
 
 import (
+	"encoding/json"
+	"fmt"
 	"up2GitX/share"
 
 	"github.com/gookit/gcli/v2"
+	"github.com/gookit/color"
+	"github.com/gookit/gcli/v2/interact"
 )
 
 // options for the command
@@ -33,7 +37,49 @@ func syncGitee(c *gcli.Command, args []string) error {
 		share.InvalidAlert(c.Name)
 	} else {
 		// todo nesOpts.forceSync
-		share.ReadyToAuth(args[0])
+		repos := share.ReadyToAuth(args[0])
+		if repos != nil {
+			askResult, success := askForAccount()
+			if success {
+				fmt.Println(askResult)
+			} else {
+				color.Red.Println(askResult)
+			}
+		}
 	}
 	return nil
+}
+
+func askForAccount() (string, bool) {
+	email, _ := interact.ReadLine("Please enter your Gitee email: ")
+	password := interact.ReadPassword("Please enter your Gitee password: ")
+	if len(email) == 0 || len(password) == 0 {
+		return "Email or Password must be provided!", false
+	} else {
+		params := fmt.Sprintf(`{
+					"grant_type": "password",
+					"username": "%s",
+					"password": "%s",
+					"client_id": "xxxxxxx",
+					"client_secret": "xxxxxxxx",
+					"scope": "projects groups enterprises"
+					}`, email, password)
+
+		var paramsJson map[string]interface{}
+		json.Unmarshal([]byte(params), &paramsJson)
+		result, err := share.Post("https://gitee.com/oauth/token", paramsJson)
+
+		if err != nil {
+			return err.Error(), false
+		}
+
+		accessToken, atok := result["access_token"].(string)
+		_, errok := result["error"].(string)
+		if atok {
+			return accessToken, true
+		} else if errok {
+			return result["error_description"].(string), false
+		}
+	}
+	return "Unexpectedly exit", false
 }

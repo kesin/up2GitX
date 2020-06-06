@@ -1,8 +1,11 @@
 package share
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -106,8 +109,8 @@ func ReadyToAuth(repoDir string) []string {
 			color.Red.Printf("No git repositories detected in %s \n", repoDir)
 		} else {
 			printRepos(repos)
-			toGitee, _ := interact.ReadLine("Continue to auth Gitee? (y/n)")
-			if toGitee == "y" {
+			inPut, _ := interact.ReadLine("Continue to the next step? (y/n) ")
+			if inPut == "y" {
 				return repos
 			} else {
 				ExitMessage()
@@ -121,4 +124,39 @@ func ReadyToAuth(repoDir string) []string {
 
 func ExitMessage() {
 	color.Yellow.Println("Bye, see you next time!")
+}
+
+func Get(url string) (map[string]interface{}, error) {
+	response, err := http.Get(url)
+	if err != nil {
+		color.Red.Printf("Request failed, Error: %s \n", err.Error())
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	body, err := ioutil.ReadAll(response.Body)
+
+	var result map[string]interface{}
+	json.Unmarshal(body, &result)
+	return result, nil
+}
+
+func Post(uri string, params map[string]interface{}) (map[string]interface{}, error) {
+	data := url.Values{}
+	for k, v := range params {
+		data.Add(k, v.(string))
+	}
+
+	response, err := http.PostForm(uri, data)
+	if err != nil {
+		color.Red.Printf("Request failed, Error: %s \n", err.Error())
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	body, _ := ioutil.ReadAll(response.Body)
+
+	var result map[string]interface{}
+	json.Unmarshal(body, &result)
+	return result, nil
 }
