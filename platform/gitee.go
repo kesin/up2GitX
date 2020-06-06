@@ -34,17 +34,19 @@ func GiteeCommand() *gcli.Command {
 }
 
 func syncGitee(c *gcli.Command, args []string) error {
+	// check message
 	if len(args) == 0 {
 		share.InvalidAlert(c.Name)
 		return nil
 	}
 
-	// todo nesOpts.forceSync
+	// check repodir and print projects to ensure
 	repos := share.ReadyToAuth(args[0])
 	if repos == nil {
 		return nil
 	}
 
+	// enter userinfo to get access token
 	askResult, success := askForAccount()
 	if !success {
 		color.Red.Println(askResult)
@@ -52,29 +54,36 @@ func syncGitee(c *gcli.Command, args []string) error {
 	}
 	accessToken := askResult
 
+	// get userinfo via access token
 	userInfo, success := getUserInfo(accessToken)
 	if !success {
 		color.Red.Println(userInfo["error"])
 		return nil
 	}
 	color.Green.Printf("Hello, %s! \n", userInfo["name"])
-	allNamespace := getNamespace(userInfo)
 
+	// get available namespace todo: enterprise and group
+	allNamespace := getNamespace(userInfo)
 	namespace := make([]string, len(allNamespace))
 	for i, n := range allNamespace {
 		namespace[i] = n[1]
 	}
 	selectedNumber := askNamespace(namespace)
 	numberD, _ := strconv.Atoi(selectedNumber)
-	selectedNp := allNamespace[numberD]
 
+	// select namespace and ask for ensure
+	selectedNp := allNamespace[numberD]
 	fmt.Printf("Selected %s(https://gitee.com/%s) as namespace, Type: %s \n" +
 		"The following projects will be generated on Gitee: \n", selectedNp[0], selectedNp[1], selectedNp[2])
+
+	// show projects list and ensure
 	share.ShowProjectLists("gitee.com", repos, selectedNp[1])
-	npEnsure, _ := interact.ReadLine("Next step: create projects and sync code, continue?(y/n)")
-	if npEnsure != "y" {
-		share.ExitMessage()
-	}
+
+	// ask for public or not
+	public := share.AskPublic(selectedNp[2])
+	fmt.Println(public)
+
+	// create projects and sync code
 
 	return nil
 }

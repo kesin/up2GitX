@@ -171,3 +171,17 @@ func ShowProjectLists(host string, repos []string, path string) {
 		color.Yellow.Println(p)
 	}
 }
+
+func AskPublic(npType string) string {
+	namespace := []string{"Public (Anyone can see this repository)",
+						  "Private (Only members can see this repository)"}
+	if npType == "Personal" {
+		namespace = append(namespace, "Inner public (Only enterprise members can see this repository)")
+	}
+	public := interact.SelectOne(
+		"Please choose this project's public type: (all projects will apply)",
+		namespace,
+		"",
+	)
+	return public
+}
