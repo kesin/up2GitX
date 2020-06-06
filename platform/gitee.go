@@ -3,6 +3,7 @@ package platform
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"up2GitX/share"
 
 	"github.com/gookit/gcli/v2"
@@ -35,18 +36,46 @@ func GiteeCommand() *gcli.Command {
 func syncGitee(c *gcli.Command, args []string) error {
 	if len(args) == 0 {
 		share.InvalidAlert(c.Name)
-	} else {
-		// todo nesOpts.forceSync
-		repos := share.ReadyToAuth(args[0])
-		if repos != nil {
-			askResult, success := askForAccount()
-			if success {
-				fmt.Println(askResult)
-			} else {
-				color.Red.Println(askResult)
-			}
-		}
+		return nil
 	}
+
+	// todo nesOpts.forceSync
+	repos := share.ReadyToAuth(args[0])
+	if repos == nil {
+		return nil
+	}
+
+	askResult, success := askForAccount()
+	if !success {
+		color.Red.Println(askResult)
+		return nil
+	}
+	accessToken := askResult
+
+	userInfo, success := getUserInfo(accessToken)
+	if !success {
+		color.Red.Println(userInfo["error"])
+		return nil
+	}
+	color.Green.Printf("Hello, %s! \n", userInfo["name"])
+	allNamespace := getNamespace(userInfo)
+
+	namespace := make([]string, len(allNamespace))
+	for i, n := range allNamespace {
+		namespace[i] = n[1]
+	}
+	selectedNumber := askNamespace(namespace)
+	numberD, _ := strconv.Atoi(selectedNumber)
+	selectedNp := allNamespace[numberD]
+
+	fmt.Printf("Selected %s(https://gitee.com/%s) as namespace, Type: %s \n" +
+		"The following projects will be generated on Gitee: \n", selectedNp[0], selectedNp[1], selectedNp[2])
+	// projects list
+	npEnsure, _ := interact.ReadLine("Next step: create projects and sync code, continue?(y/n)")
+	if npEnsure != "y" {
+		share.ExitMessage()
+	}
+
 	return nil
 }
 
@@ -60,9 +89,9 @@ func askForAccount() (string, bool) {
 					"grant_type": "password",
 					"username": "%s",
 					"password": "%s",
-					"client_id": "xxxxxxx",
-					"client_secret": "xxxxxxxx",
-					"scope": "projects groups enterprises"
+					"client_id": "xxxx",
+					"client_secret": "xxxx",
+					"scope": "user_info projects groups enterprises"
 					}`, email, password)
 
 		var paramsJson map[string]interface{}
@@ -73,13 +102,57 @@ func askForAccount() (string, bool) {
 			return err.Error(), false
 		}
 
-		accessToken, atok := result["access_token"].(string)
-		_, errok := result["error"].(string)
-		if atok {
-			return accessToken, true
-		} else if errok {
-			return result["error_description"].(string), false
-		}
+		filterVal, ok := filterResult(result, "access_token")
+		return filterVal, ok
+	}
+}
+
+func getUserInfo(token string) (map [string]string, bool) {
+	info := make(map [string]string)
+	uri := fmt.Sprintf("https://gitee.com/api/v5/user?access_token=%s", token)
+	result, err := share.Get(uri)
+	if err != nil {
+		info["error"] = err.Error()
+		return info, false
+	}
+	name, ok := filterResult(result, "name")
+	if !ok {
+		info["error"] = name
+		return info, ok
+	}
+	info["name"] = name
+	username, ok := filterResult(result, "login")
+	info["username"] = username
+	return info, ok
+}
+
+func filterResult(result map[string]interface{}, key string) (string, bool) {
+	val, atok := result[key].(string)
+	_, errok := result["error"].(string)
+	if atok {
+		return val, true
+	} else if errok {
+		return result["error_description"].(string), false
 	}
 	return "Unexpectedly exit", false
+}
+
+// todo enable select group and enterprise
+func getNamespace(userInfo map [string]string) [][]string {
+	namespace := make([][]string, 1)
+	namespace[0] = make([]string, 4)
+	namespace[0][0] = userInfo["name"]
+	namespace[0][1] = userInfo["username"]
+	namespace[0][2] = "Personal"
+	namespace[0][3] = "0"
+	return namespace
+}
+
+func askNamespace(namespace []string) string {
+	np := interact.SelectOne(
+		"Please select which namespace you want to put this repositories: ",
+		namespace,
+		"",
+	)
+	return np
 }

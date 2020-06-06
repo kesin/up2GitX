@@ -65,7 +65,7 @@ func isGitRepo(repoPath string) (isGit bool) {
 }
 
 func printRepos(repos []string) {
-	color.Yellow.Println(len(repos), "repositories detected, please check bellow: ")
+	color.Yellow.Println(len(repos), "repositories detected, please check below: ")
 	alertFlag := false
 	for _, repo := range repos { // todo goroutine
 		fmt.Printf(repo)
@@ -109,7 +109,7 @@ func ReadyToAuth(repoDir string) []string {
 			color.Red.Printf("No git repositories detected in %s \n", repoDir)
 		} else {
 			printRepos(repos)
-			inPut, _ := interact.ReadLine("Continue to the next step? (y/n) ")
+			inPut, _ := interact.ReadLine("Check if this repositories are what you expected, ready to the next step? (y/n) ")
 			if inPut == "y" {
 				return repos
 			} else {
@@ -134,7 +134,7 @@ func Get(url string) (map[string]interface{}, error) {
 	}
 	defer response.Body.Close()
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, _ := ioutil.ReadAll(response.Body)
 
 	var result map[string]interface{}
 	json.Unmarshal(body, &result)
