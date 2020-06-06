@@ -67,8 +67,10 @@ func isGitRepo(repoPath string) (isGit bool) {
 func printRepos(repos []string) {
 	color.Yellow.Println(len(repos), "repositories detected, please check below: ")
 	alertFlag := false
-	for _, repo := range repos { // todo goroutine
-		fmt.Printf(repo)
+	for i, repo := range repos { // todo goroutine
+		i = i + 1
+		p := fmt.Sprintf("%d. %s", i, repo)
+		fmt.Printf(p)
 		size, outAlert, _ := repoSize(repo)
 		alertFlag = alertFlag || outAlert
 		if outAlert {
@@ -159,4 +161,13 @@ func Post(uri string, params map[string]interface{}) (map[string]interface{}, er
 	var result map[string]interface{}
 	json.Unmarshal(body, &result)
 	return result, nil
+}
+
+func ShowProjectLists(host string, repos []string, path string) {
+	for i, r := range repos {
+		i = i + 1
+		ra := strings.Split(r, "/")
+		p := fmt.Sprintf("%d. https://%s/%s/%s", i, host, path, ra[len(ra) - 1])
+		color.Yellow.Println(p)
+	}
 }

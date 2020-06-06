@@ -70,7 +70,7 @@ func syncGitee(c *gcli.Command, args []string) error {
 
 	fmt.Printf("Selected %s(https://gitee.com/%s) as namespace, Type: %s \n" +
 		"The following projects will be generated on Gitee: \n", selectedNp[0], selectedNp[1], selectedNp[2])
-	// projects list
+	share.ShowProjectLists("gitee.com", repos, selectedNp[1])
 	npEnsure, _ := interact.ReadLine("Next step: create projects and sync code, continue?(y/n)")
 	if npEnsure != "y" {
 		share.ExitMessage()
