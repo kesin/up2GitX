@@ -13,9 +13,9 @@ var nesOpts = struct {
 
 func GiteeCommand() *gcli.Command {
 	gitee := &gcli.Command{
-		Func:    syncGitee,
-		Name:    "gitee",
-		UseFor:  "This command is used for sync local repo to Gitee",
+		Func:     syncGitee,
+		Name:     "gitee",
+		UseFor:   "This command is used for sync local repo to Gitee",
 		Examples: `Simple usage: <cyan>{$binName} {$cmd} /Users/Zoker/repos/</>`,
 	}
 

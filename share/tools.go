@@ -41,7 +41,7 @@ func GetGitDir(repoDir string) (repos []string, err error) {
 			continue
 		}
 		repoPath := repoDir + pathSep + repo.Name() // todo check repo path valid
-		if isGitRepo(repoPath) { // todo goroutine
+		if isGitRepo(repoPath) {                    // todo goroutine
 			repos = append(repos, repoPath)
 		}
 	}
@@ -84,7 +84,7 @@ func printRepos(repos []string) {
 
 func repoSize(path string) (float32, bool, error) {
 	var size int64
-	err := filepath.Walk(path,func(_ string,info os.FileInfo,err error) error {
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			size += info.Size()
 		}
@@ -92,7 +92,7 @@ func repoSize(path string) (float32, bool, error) {
 	})
 
 	outOf1G := false
-	if size > 1024 * 1024 * 1024 {
+	if size > 1024*1024*1024 {
 		outOf1G = true
 	}
 	sizeMB := float32(size) / 1024.0 / 1024.0
