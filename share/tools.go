@@ -9,7 +9,14 @@ import (
 	"strings"
 
 	"github.com/gookit/color"
+	"github.com/gookit/gcli/v2/interact"
 )
+
+func InvalidAlert(platform string) {
+	fmt.Printf("Tell me which repos dir your want to sync, Usage: ")
+	color.Yellow.Printf("up2 %s /Users/Zoker/repos/\n", platform)
+	fmt.Printf("See 'up2 %s -h' for more details\n", platform)
+}
 
 func DirExists(path string) bool {
 	s, err := os.Stat(path)
@@ -33,14 +40,11 @@ func GetGitDir(repoDir string) (repos []string, err error) {
 		if !repo.IsDir() {
 			continue
 		}
-		repoPath := repoDir + pathSep + repo.Name()
-		isGit := isGitRepo(repoPath) // todo goroutine
-		if isGit {
+		repoPath := repoDir + pathSep + repo.Name() // todo check repo path valid
+		if isGitRepo(repoPath) { // todo goroutine
 			repos = append(repos, repoPath)
 		}
 	}
-
-	printRepos(repos)
 
 	return repos, nil
 }
@@ -57,7 +61,28 @@ func isGitRepo(repoPath string) (isGit bool) {
 	}
 }
 
-func dirSize(path string) (float32, bool, error) {
+func printRepos(repos []string) {
+	color.Yellow.Println(len(repos), "repositories detected, please check bellow: ")
+	alertFlag := false
+	for _, repo := range repos { // todo goroutine
+		fmt.Printf(repo)
+		size, outAlert, _ := repoSize(repo)
+		alertFlag = alertFlag || outAlert
+		if outAlert {
+			color.Red.Printf(" %.2f", size)
+			color.Red.Println("M")
+		} else {
+			color.Green.Printf(" %.2f", size)
+			color.Green.Println("M")
+		}
+	}
+
+	if alertFlag {
+		color.Yellow.Println("Warning: some of your local repo is out of 1G, please make sure that you account have permission to sync repository that size more than 1G")
+	}
+}
+
+func repoSize(path string) (float32, bool, error) {
 	var size int64
 	err := filepath.Walk(path,func(_ string,info os.FileInfo,err error) error {
 		if !info.IsDir() {
@@ -74,23 +99,26 @@ func dirSize(path string) (float32, bool, error) {
 	return sizeMB, outOf1G, err
 }
 
-func printRepos(repos []string) {
-	color.Yellow.Println(len(repos), "repositories detected, please check bellow: ")
-	alertFlag := false
-	for _, repo := range repos { // todo goroutine
-		fmt.Printf(repo)
-		size, outAlert, _ := dirSize(repo)
-		alertFlag = alertFlag || outAlert
-		if outAlert {
-			color.Red.Printf(" %.2f", size)
-			color.Red.Println("M")
+func ReadyToAuth(repoDir string) []string {
+	if DirExists(repoDir) {
+		repos, _ := GetGitDir(repoDir)
+		if len(repos) == 0 {
+			color.Red.Printf("No git repositories detected in %s \n", repoDir)
 		} else {
-			color.Green.Printf(" %.2f", size)
-			color.Green.Println("M")
+			printRepos(repos)
+			toGitee, _ := interact.ReadLine("Continue to auth Gitee? (y/n)")
+			if toGitee == "y" {
+				return repos
+			} else {
+				ExitMessage()
+			}
 		}
+	} else {
+		color.Red.Println("The path you provided is not a dir or not exists")
 	}
+	return nil
+}
 
-	if alertFlag {
-		color.Yellow.Println("Warning: some of your local repo is out of 1G, please make sure that you account have permission to sync repository that size more than 1G")
-	}
+func ExitMessage() {
+	color.Yellow.Println("Bye, see you next time!")
 }

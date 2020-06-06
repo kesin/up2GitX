@@ -1,12 +1,9 @@
 package platform
 
 import (
-	"fmt"
 	"up2GitX/share"
 
-	"github.com/gookit/color"
 	"github.com/gookit/gcli/v2"
-	"github.com/gookit/gcli/v2/interact"
 )
 
 // options for the command
@@ -33,22 +30,10 @@ func GiteeCommand() *gcli.Command {
 
 func syncGitee(c *gcli.Command, args []string) error {
 	if len(args) == 0 {
-		fmt.Printf("Tell me which repos your want to sync, Usage: ")
-		color.Cyan.Println("up2 gitee /Users/Zoker/repos/")
-		fmt.Println("See 'up2 gitee -h' for more details")
+		share.InvalidAlert(c.Name)
 	} else {
-		repoDir := args[0]
 		// todo nesOpts.forceSync
-		if share.DirExists(repoDir) {
-			repos, _ := share.GetGitDir(repoDir)
-			fmt.Println(repos)
-			toGitee, _ := interact.ReadLine("Continue to auth Gitee? (y/n Default: y)")
-			fmt.Println(toGitee)
-		} else {
-			fmt.Println("The path you provided is not a dir or not exists")
-		}
-
-		return nil
+		share.ReadyToAuth(args[0])
 	}
 	return nil
 }
