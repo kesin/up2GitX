@@ -163,6 +163,26 @@ func Post(uri string, params map[string]interface{}) (map[string]interface{}, er
 	return result, nil
 }
 
+func PostForm(uri string, params map[string]interface{}) (map[string]interface{}, error) {
+	data := ""
+	for k, v := range params {
+		data += fmt.Sprintf("%s=%s&%s", k, v.(string), data)
+	}
+
+	response, err := http.Post(uri, "application/x-www-form-urlencoded", strings.NewReader(data))
+	if err != nil {
+		color.Red.Printf("Request failed, Error: %s \n", err.Error())
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	body, _ := ioutil.ReadAll(response.Body)
+
+	var result map[string]interface{}
+	json.Unmarshal(body, &result)
+	return result, nil
+}
+
 func ShowProjectLists(host string, repos []string, path string) {
 	for i, r := range repos {
 		i = i + 1
@@ -175,7 +195,7 @@ func ShowProjectLists(host string, repos []string, path string) {
 func AskPublic(npType string) string {
 	namespace := []string{"Public (Anyone can see this repository)",
 						  "Private (Only members can see this repository)"}
-	if npType == "Personal" {
+	if npType == "Enterprise" {
 		namespace = append(namespace, "Inner public (Only enterprise members can see this repository)")
 	}
 	public := interact.SelectOne(

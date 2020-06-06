@@ -4,11 +4,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"up2GitX/share"
 
 	"github.com/gookit/gcli/v2"
 	"github.com/gookit/color"
 	"github.com/gookit/gcli/v2/interact"
+)
+
+type RepoResult struct {
+	local  string
+	uri  string
+	status  int
+	error string
+}
+
+const (
+	SUCCESS int = 0
+	EXIST int   = 1
+	ERROR int   = 2
+	SPL string = "------------------------------"
 )
 
 func GiteeCommand() *gcli.Command {
@@ -73,9 +88,13 @@ func syncGitee(c *gcli.Command, args []string) error {
 
 	// ask for public or not
 	public := share.AskPublic(selectedNp[2])
-	fmt.Println(public)
 
-	// create projects and sync code, ask for force permission if project exists
+	// create projects
+	color.Green.Println("Creating Projects, Please Wait...")
+	repoRes := createProjects(repos, public, accessToken, selectedNp)
+
+	// show results
+	showRepoRes(repoRes)
 
 	return nil
 }
@@ -156,4 +175,117 @@ func askNamespace(namespace []string) string {
 		"",
 	)
 	return np
+}
+
+func createProjects(repos []string, public string, token string, np []string) []RepoResult {
+	repoUrl := getRepoUrl(np)
+	repoRes := make([]RepoResult, len(repos))
+	for i, repo := range repos { // todo: goroutine
+		paths := strings.Split(repo, "/")
+		path := paths[len(paths) - 1]
+		params := fmt.Sprintf(`{
+					"access_token": "%s",
+					"name": "%s",
+					"path": "%s",
+					"private": "%s"
+					}`, token, path, path, public)
+		var paramsJson map[string]interface{}
+		json.Unmarshal([]byte(params), &paramsJson)
+		result, err := share.PostForm(repoUrl, paramsJson)
+		if err != nil {
+			return []RepoResult{}
+		}
+		uri, eType := filterProjectResult(result, "html_url")
+		errMsg := uri
+		if eType == EXIST {
+			uri = fmt.Sprintf("https://gitee.com/%s/%s.git", np[1], path)
+		}
+		repoRes[i] = RepoResult{local: repo, uri: uri, status: eType, error: errMsg}
+		i = i + 1
+	}
+	return repoRes
+}
+
+func getRepoUrl(np []string) string {
+	var uri string
+	switch np[2] {
+	case "Personal":
+		uri = "https://gitee.com/api/v5/user/repos"
+	case "Group":
+		uri = fmt.Sprintf("https://gitee.com/api/v5/orgs/%s/repos", np[1])
+	case "Enterprise":
+		uri = fmt.Sprintf("https://gitee.com/api/v5/enterprises/%s/repos", np[1])
+	}
+	return uri
+}
+
+func filterProjectResult(result map[string]interface{}, key string) (string, int) {
+	var err string
+	var eType int
+	if result["error"] != nil {
+		for k, v := range result["error"].(map[string]interface{}) {
+			err = fmt.Sprint(v) // skip Type Assertion
+			if k == "base" {
+				eType = EXIST
+			} else {
+				eType = ERROR
+			}
+		}
+		return err, eType
+	}
+	val, atok := result[key].(string)
+	if atok {
+		return val, SUCCESS
+	}
+	return "Unexpectedly exit", ERROR
+}
+
+func showRepoRes(repoRes []RepoResult) {
+	printRepo(repoRes, SUCCESS)
+	printRepo(repoRes, EXIST)
+	printRepo(repoRes, ERROR)
+}
+
+func printRepo(repoRes []RepoResult, status int) {
+	var p, result string
+	repoStatus := repoStatus(status)
+	for _, item := range repoRes {
+		if item.status == status {
+			if status == ERROR {
+				result = item.error
+			} else {
+				result = item.uri
+			}
+			p = fmt.Sprintf("Dir: (%s)\n Status: %s\n Result: %s\n%s", item.local, repoStatus, result, SPL)
+			colorRepo(status, p)
+		}
+	}
+}
+
+func repoStatus(status int) string {
+	str := ""
+	switch status {
+	case SUCCESS:
+		str = "Created"
+	case EXIST:
+		str = "Exists"
+	case ERROR:
+		str = "Error"
+	default:
+		str = "Unknown Error"
+	}
+	return str
+}
+
+func colorRepo(status int, p string) {
+	switch status {
+	case SUCCESS:
+		color.Blue.Println(p)
+	case EXIST:
+		color.Yellow.Println(p)
+	case ERROR:
+		color.Red.Println(p)
+	default:
+		color.Red.Println(p)
+	}
 }
