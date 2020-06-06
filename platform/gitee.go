@@ -11,11 +11,6 @@ import (
 	"github.com/gookit/gcli/v2/interact"
 )
 
-// options for the command
-var nesOpts = struct {
-	forceSync bool
-}{}
-
 func GiteeCommand() *gcli.Command {
 	gitee := &gcli.Command{
 		Func:     syncGitee,
@@ -23,9 +18,6 @@ func GiteeCommand() *gcli.Command {
 		UseFor:   "This command is used for sync local repo to Gitee",
 		Examples: `Simple usage: <cyan>{$binName} {$cmd} /Users/Zoker/repos/</>`,
 	}
-
-	// bind options
-	gitee.BoolOpt(&nesOpts.forceSync, "force", "f", false, "Sync local repo to Gitee whether repo exists or not, like git push --force all")
 
 	// bind args with names
 	gitee.AddArg("repoDir", "Tell me which repos your want to sync, is required", false)
@@ -83,7 +75,7 @@ func syncGitee(c *gcli.Command, args []string) error {
 	public := share.AskPublic(selectedNp[2])
 	fmt.Println(public)
 
-	// create projects and sync code
+	// create projects and sync code, ask for force permission if project exists
 
 	return nil
 }
