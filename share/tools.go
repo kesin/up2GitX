@@ -215,6 +215,7 @@ func AskError() string {
 }
 
 func AskExist() string {
+	color.Notice.Println("WARNING: The exist project will remain private attribute as what it was!")
 	howTo := []string{"Exit and fix them",
 		"Skip them",
 		"Overwrite the remote (same as git push --force, you need exactly know what you do before you select this item)"}
@@ -228,12 +229,15 @@ func selectOne(items []string, ques string) string {
 
 func SyncRepo(auth *http.BasicAuth ,local string, uri string, force string) error {
 	var forceStr string
+
+	// generate a tmp remote
 	remote := fmt.Sprintf("up2GitX-%d", time.Now().Unix())
 	r, err := git.PlainOpen(local)
 	if err != nil {
 		return err
 	}
 
+	// delete this remote after sync whether success or not
 	defer deleteRemote(r, remote)
 	_, err = r.CreateRemote(&config.RemoteConfig{
 		Name: remote,

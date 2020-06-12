@@ -26,7 +26,7 @@ const (
 	EXIST int   = 1
 	ERROR int   = 2
 	SKIP string = "1"
-	SPL string = "------------------------------"
+	SPL string = "\n"
 )
 
 func GiteeCommand() *gcli.Command {
@@ -292,9 +292,10 @@ func printRepo(repoRes []RepoResult, status int) int {
 			} else {
 				result = item.uri
 			}
-			p = fmt.Sprintf("Dir: (%s)\n Status: %s\n Result: %s", item.local, repoStatus, result)
+			p = fmt.Sprintf("Dir: (%s)\n  Status: %s\n  Result: ", item.local, repoStatus)
 			colorRepo(status, p)
-			fmt.Println(SPL)
+			colorResult(status, result)
+			fmt.Printf(SPL)
 		}
 	}
 	return errorNum
@@ -314,9 +315,10 @@ func printSync(syncRes []RepoResult, status int) {
 			} else {
 				result = item.error
 			}
-			p = fmt.Sprintf("Dir: (%s)\n Gitee: %s\n Result: %s", item.local, item.uri, result)
+			p = fmt.Sprintf("Dir: (%s)\n  Gitee: %s\n  Result: ", item.local, item.uri)
 			colorRepo(EXIST, p)
-			fmt.Println(SPL)
+			colorResult(item.status, result)
+			fmt.Printf(SPL)
 		}
 	}
 }
@@ -339,7 +341,20 @@ func repoStatus(status int) string {
 func colorRepo(status int, p string) {
 	switch status {
 	case SUCCESS:
-		color.Blue.Println(p)
+		color.Green.Printf(p)
+	case EXIST:
+		color.Yellow.Printf(p)
+	case ERROR:
+		color.Red.Printf(p)
+	default:
+		color.Red.Printf(p)
+	}
+}
+
+func colorResult(status int, p string) {
+	switch status {
+	case SUCCESS:
+		color.Green.Println(p)
 	case EXIST:
 		color.Yellow.Println(p)
 	case ERROR:
