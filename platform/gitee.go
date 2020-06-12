@@ -10,6 +10,7 @@ import (
 	"github.com/gookit/gcli/v2"
 	"github.com/gookit/color"
 	"github.com/gookit/gcli/v2/interact"
+	"github.com/gookit/gcli/v2/progress"
 )
 
 type RepoResult struct {
@@ -190,6 +191,8 @@ func askNamespace(namespace []string) string {
 func createProjects(repos []string, public string, token string, np []string) []RepoResult {
 	repoUrl := getRepoUrl(np)
 	repoRes := make([]RepoResult, len(repos))
+	step := progress.Bar(len(repos))
+	step.Start()
 	for i, repo := range repos { // todo: goroutine
 		paths := strings.Split(repo, "/")
 		path := paths[len(paths) - 1]
@@ -212,7 +215,9 @@ func createProjects(repos []string, public string, token string, np []string) []
 		}
 		repoRes[i] = RepoResult{local: repo, uri: uri, status: eType, error: errMsg}
 		i = i + 1
+		step.Advance()
 	}
+	step.Finish()
 	return repoRes
 }
 
