@@ -11,6 +11,7 @@ import (
 	"github.com/gookit/color"
 	"github.com/gookit/gcli/v2/interact"
 	"github.com/gookit/gcli/v2/progress"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 )
 
 type RepoResult struct {
@@ -24,6 +25,7 @@ const (
 	SUCCESS int = 0
 	EXIST int   = 1
 	ERROR int   = 2
+	SKIP string = "1"
 	SPL string = "------------------------------"
 )
 
@@ -55,7 +57,7 @@ func syncGitee(c *gcli.Command, args []string) error {
 	}
 
 	// enter userinfo to get access token
-	askResult, success := askForAccount()
+	askResult, success, auth := askForAccount()
 	if !success {
 		color.Red.Println(askResult)
 		return nil
@@ -95,7 +97,11 @@ func syncGitee(c *gcli.Command, args []string) error {
 	repoRes := createProjects(repos, public, accessToken, selectedNp)
 
 	// show results
-	showRepoRes(repoRes)
+	valid := showRepoRes(repoRes)
+	if !valid {
+		color.Red.Println("No repositories are available to be uploaded!")
+		return nil
+	}
 
 	// ask for exist and error details
 	asErr := share.AskError()
@@ -106,15 +112,26 @@ func syncGitee(c *gcli.Command, args []string) error {
 	if asExi == "0" {
 		return nil
 	}
-	fmt.Println(asExi)
+
+	// available check
+	avaiRepo := availableRepo(repoRes, asExi)
+	if len(avaiRepo) == 0 {
+		color.Red.Println("No repositories are available to be uploaded!")
+		return nil
+	}
+
+	// sync code
+	color.Green.Println("Syncing Projects to Gitee, Please Wait...")
+	syncRes := multiSync(avaiRepo, auth, asExi)
+	showSyncRes(syncRes)
 	return nil
 }
 
-func askForAccount() (string, bool) {
+func askForAccount() (string, bool, *http.BasicAuth) {
 	email, _ := interact.ReadLine("Please enter your Gitee email: ")
 	password := interact.ReadPassword("Please enter your Gitee password: ")
 	if len(email) == 0 || len(password) == 0 {
-		return "Email or Password must be provided!", false
+		return "Email or Password must be provided!", false, nil
 	} else {
 		params := fmt.Sprintf(`{
 					"grant_type": "password",
@@ -130,11 +147,12 @@ func askForAccount() (string, bool) {
 		result, err := share.Post("https://gitee.com/oauth/token", paramsJson)
 
 		if err != nil {
-			return err.Error(), false
+			return err.Error(), false, nil
 		}
 
 		filterVal, ok := filterResult(result, "access_token")
-		return filterVal, ok
+		auth := &http.BasicAuth{email, password}
+		return filterVal, ok, auth
 	}
 }
 
@@ -255,24 +273,50 @@ func filterProjectResult(result map[string]interface{}, key string) (string, int
 	return "Unexpectedly exit", ERROR
 }
 
-func showRepoRes(repoRes []RepoResult) {
+func showRepoRes(repoRes []RepoResult) bool {
 	printRepo(repoRes, SUCCESS)
 	printRepo(repoRes, EXIST)
-	printRepo(repoRes, ERROR)
+	errNum := printRepo(repoRes, ERROR)
+	return errNum != len(repoRes)
 }
 
-func printRepo(repoRes []RepoResult, status int) {
+func printRepo(repoRes []RepoResult, status int) int {
 	var p, result string
+	errorNum := 0
 	repoStatus := repoStatus(status)
 	for _, item := range repoRes {
 		if item.status == status {
 			if status == ERROR {
 				result = item.error
+				errorNum = errorNum + 1
 			} else {
 				result = item.uri
 			}
-			p = fmt.Sprintf("Dir: (%s)\n Status: %s\n Result: %s\n%s", item.local, repoStatus, result, SPL)
+			p = fmt.Sprintf("Dir: (%s)\n Status: %s\n Result: %s", item.local, repoStatus, result)
 			colorRepo(status, p)
+			fmt.Println(SPL)
+		}
+	}
+	return errorNum
+}
+
+func showSyncRes(syncRes []RepoResult) {
+	printSync(syncRes, SUCCESS)
+	printSync(syncRes, ERROR)
+}
+
+func printSync(syncRes []RepoResult, status int) {
+	var p, result string
+	for _, item := range syncRes {
+		if item.status == status {
+			if status == SUCCESS {
+				result = "Sync to Gitee SUCCESS!"
+			} else {
+				result = item.error
+			}
+			p = fmt.Sprintf("Dir: (%s)\n Gitee: %s\n Result: %s", item.local, item.uri, result)
+			colorRepo(EXIST, p)
+			fmt.Println(SPL)
 		}
 	}
 }
@@ -303,4 +347,33 @@ func colorRepo(status int, p string) {
 	default:
 		color.Red.Println(p)
 	}
+}
+
+func multiSync(avaiRepo []RepoResult, auth *http.BasicAuth, force string) []RepoResult {
+	var syncRes []RepoResult
+	step := progress.Bar(len(avaiRepo))
+	step.Start()
+	for _, item := range avaiRepo {
+		err := share.SyncRepo(auth, item.local, item.uri, force)
+		if err != nil {
+			item.status = ERROR
+			item.error = err.Error()
+		} else {
+			item.status = SUCCESS
+		}
+		syncRes = append(syncRes, item)
+		step.Advance()
+	}
+	step.Finish()
+	return syncRes
+}
+
+func availableRepo(repoRes []RepoResult, force string) []RepoResult {
+	var avaiRepo []RepoResult
+	for _, item := range repoRes {
+		if item.status == SUCCESS || (item.status == EXIST && force != SKIP) {
+			avaiRepo = append(avaiRepo, item)
+		}
+	}
+	return avaiRepo
 }

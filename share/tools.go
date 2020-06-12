@@ -4,15 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
+	NetHttp "net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gookit/color"
 	"github.com/gookit/gcli/v2/interact"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 )
 
 func InvalidAlert(platform string) {
@@ -129,7 +133,7 @@ func ExitMessage() {
 }
 
 func Get(url string) (map[string]interface{}, error) {
-	response, err := http.Get(url)
+	response, err := NetHttp.Get(url)
 	if err != nil {
 		color.Red.Printf("Request failed, Error: %s \n", err.Error())
 		return nil, err
@@ -149,7 +153,7 @@ func Post(uri string, params map[string]interface{}) (map[string]interface{}, er
 		data.Add(k, v.(string))
 	}
 
-	response, err := http.PostForm(uri, data)
+	response, err := NetHttp.PostForm(uri, data)
 	if err != nil {
 		color.Red.Printf("Request failed, Error: %s \n", err.Error())
 		return nil, err
@@ -169,7 +173,7 @@ func PostForm(uri string, params map[string]interface{}) (map[string]interface{}
 		data += fmt.Sprintf("%s=%s&%s", k, v.(string), data)
 	}
 
-	response, err := http.Post(uri, "application/x-www-form-urlencoded", strings.NewReader(data))
+	response, err := NetHttp.Post(uri, "application/x-www-form-urlencoded", strings.NewReader(data))
 	if err != nil {
 		color.Red.Printf("Request failed, Error: %s \n", err.Error())
 		return nil, err
@@ -212,12 +216,53 @@ func AskError() string {
 
 func AskExist() string {
 	howTo := []string{"Exit and fix them",
-		"Overwrite the remote (same as git push --force, you need exactly know what you do before you select this item)",
-		"Skip them"}
+		"Skip them",
+		"Overwrite the remote (same as git push --force, you need exactly know what you do before you select this item)"}
 	ques := "The are some projects name already exists, what would you like to do?"
 	return selectOne(howTo, ques)
 }
 
 func selectOne(items []string, ques string) string {
 	return 	interact.SelectOne(ques, items, "",)
+}
+
+func SyncRepo(auth *http.BasicAuth ,local string, uri string, force string) error {
+	var forceStr string
+	remote := fmt.Sprintf("up2GitX-%d", time.Now().Unix())
+	r, err := git.PlainOpen(local)
+	if err != nil {
+		return err
+	}
+
+	defer deleteRemote(r, remote)
+	_, err = r.CreateRemote(&config.RemoteConfig{
+		Name: remote,
+		URLs: []string{uri},
+	})
+	if err != nil {
+		return err
+	}
+
+	switch force { // push force or not
+	case "2":
+		forceStr = "+"
+	default:
+		forceStr = ""
+	}
+	rHeadStrings := fmt.Sprintf("%srefs/%s/*:refs/%s/*", forceStr, "heads", "heads")
+	rTagStrings := fmt.Sprintf("%srefs/%s/*:refs/%s/*", forceStr, "tags", "tags")
+	rHeads := config.RefSpec(rHeadStrings)
+	rTags := config.RefSpec(rTagStrings)
+
+	err = r.Push(&git.PushOptions{RemoteName: remote,
+		RefSpecs: []config.RefSpec{rHeads, rTags},
+		Auth: auth})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteRemote(r  *git.Repository, upRe string) {
+	r.DeleteRemote(upRe)
 }
