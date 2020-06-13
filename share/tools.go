@@ -1,13 +1,14 @@
 package share
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	NetHttp "net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -20,51 +21,81 @@ import (
 )
 
 func InvalidAlert(platform string) {
-	fmt.Printf("Tell me which repos dir your want to sync, Usage: ")
-	color.Yellow.Printf("up2 %s /Users/Zoker/repos/\n", platform)
+	fmt.Printf("Tell me which repos source your want to sync, Usage: ")
+	color.Yellow.Printf("up2 %s /Users/Zoker/repos/ or up2 %s /Users/Zoker/repo.txt\n", platform, platform)
 	fmt.Printf("See 'up2 %s -h' for more details\n", platform)
 }
 
-func DirExists(path string) bool {
-	s, err := os.Stat(path)
-	if err != nil {
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
 		return false
 	}
-	return s.IsDir()
+	return false
 }
 
-func GetGitDir(repoDir string) (repos []string, err error) {
-	repos = make([]string, 0, 10)
-
-	dir, err := ioutil.ReadDir(repoDir)
+func GetGitDir(repoSource string) (repos []string, err error) {
+	source, err := os.Stat(repoSource)
 	if err != nil {
 		return nil, err
 	}
 
-	pathSep := string(os.PathSeparator)
-
-	for _, repo := range dir {
-		if !repo.IsDir() {
-			continue
+	// source is a dir
+	if source.IsDir() {
+		dir, err := ioutil.ReadDir(repoSource)
+		if err != nil {
+			return nil, err
 		}
-		repoPath := repoDir + pathSep + repo.Name() // todo check repo path valid
-		if isGitRepo(repoPath) {                    // todo goroutine
-			repos = append(repos, repoPath)
+
+		pathSep := string(os.PathSeparator)
+		for _, repo := range dir {
+			if !repo.IsDir() {
+				continue
+			}
+			repoPath := repoSource + pathSep + repo.Name() // todo check repo path valid
+			if isGitRepo(repoPath) {                    // todo goroutine
+				repos = append(repos, repoPath)
+			}
+		}
+	// source is list
+	} else {
+		file, err := os.Open(repoSource)
+		if err != nil {
+			return nil, err
+		}
+
+		defer file.Close()
+		bf := bufio.NewReader(file)
+
+		for {
+			path, _, err := bf.ReadLine()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			if 0 == len(path) || string(path) == "\r\n" {
+				continue
+			}
+			realPath := string(path)
+			if isGitRepo(realPath) { // todo goroutine
+				repos = append(repos, realPath)
+			}
 		}
 	}
-
 	return repos, nil
 }
 
 func isGitRepo(repoPath string) (isGit bool) {
-	cmd := exec.Command("git", "tag")
-	cmd.Dir = repoPath
-	output, _ := cmd.CombinedOutput()
-	result := string(output)
-	if strings.Contains(result, "not a git repository") {
-		return false
-	} else {
+	_, err := git.PlainOpen(repoPath)
+	if err == nil {
 		return true
+	} else {
+		return false
 	}
 }
 
@@ -109,7 +140,7 @@ func repoSize(path string) (float32, bool, error) {
 }
 
 func ReadyToAuth(repoDir string) []string {
-	if DirExists(repoDir) {
+	if FileExists(repoDir) {
 		repos, _ := GetGitDir(repoDir)
 		if len(repos) == 0 {
 			color.Red.Printf("No git repositories detected in %s \n", repoDir)

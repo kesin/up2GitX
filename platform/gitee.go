@@ -34,11 +34,26 @@ func GiteeCommand() *gcli.Command {
 		Func:     syncGitee,
 		Name:     "gitee",
 		UseFor:   "This command is used for sync local repo to Gitee",
-		Examples: `Simple usage: <cyan>{$binName} {$cmd} /Users/Zoker/repos/</>`,
-	}
+		Examples: `
+  <yellow>Using dir: </> <cyan>{$binName} {$cmd} /Zoker/repos/</>
+  Dir example
+	<gray>$ ls -l /Zoker/repos/</>
+	drwxr-xr-x  4 zoker  128B Jun  1 19:05 git-work-repo1
+	drwxr-xr-x  4 zoker  128B Jun  1 19:02 taskover
+	drwxr-xr-x  4 zoker  128B Jun  1 19:03 blogine
+	drwxr-xr-x  3 zoker   96B Jun  1 12:15 git-bare-repo3
+	...
+
+  <yellow>Using file: </> <cyan>{$binName} {$cmd} /Zoker/repos.list</>
+  File example
+	<gray>$ cat /Zoker/repos.list</>
+	/tmp/repos/git-work-repo1
+	/Zoker/workspace/git-work-repo2
+	/other/path/to/git-bare-repo3
+	...`}
 
 	// bind args with names
-	gitee.AddArg("repoDir", "Tell me which repos your want to sync, is required", false)
+	gitee.AddArg("repoSource", "Tell me which repo dir or list your want to sync, is required", false)
 
 	return gitee
 }
