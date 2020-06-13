@@ -69,7 +69,7 @@ func isGitRepo(repoPath string) (isGit bool) {
 }
 
 func printRepos(repos []string) {
-	color.Yellow.Println(len(repos), "repositories detected, please check below: ")
+	color.Yellow.Println(len(repos), "repositories detected, please check below: ", "\n")
 	alertFlag := false
 	for i, repo := range repos { // todo goroutine
 		i = i + 1
@@ -115,7 +115,7 @@ func ReadyToAuth(repoDir string) []string {
 			color.Red.Printf("No git repositories detected in %s \n", repoDir)
 		} else {
 			printRepos(repos)
-			inPut, _ := interact.ReadLine("Check if this repositories are what you expected, ready to the next step? (y/n) ")
+			inPut, _ := interact.ReadLine("\nCheck if this repositories are what you expected, ready to the next step? (y/n) ")
 			if inPut == "y" {
 				return repos
 			} else {
@@ -202,7 +202,8 @@ func AskPublic(npType string) string {
 	if npType == "Enterprise" {
 		namespace = append(namespace, "Inner public (Only enterprise members can see this repository)")
 	}
-	ques := "Please choose this project's public type: (all projects will apply)"
+	fmt.Printf("\n")
+	ques := "Please choose this project's public type: (new projects will apply)"
 	public := selectOne(namespace, ques)
 	return public
 }
@@ -215,7 +216,7 @@ func AskError() string {
 }
 
 func AskExist() string {
-	color.Notice.Println("WARNING: The exist project will remain private attribute as what it was!")
+	color.Notice.Println("\n", "WARNING: The exist project will remain private attribute as what it was!", "\n")
 	howTo := []string{"Exit and fix them",
 		"Skip them",
 		"Overwrite the remote (same as git push --force, you need exactly know what you do before you select this item)"}

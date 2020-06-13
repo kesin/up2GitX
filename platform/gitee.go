@@ -70,7 +70,7 @@ func syncGitee(c *gcli.Command, args []string) error {
 		color.Red.Println(userInfo["error"])
 		return nil
 	}
-	color.Green.Printf("Hello, %s! \n", userInfo["name"])
+	color.Green.Printf("\nHello, %s! \n\n", userInfo["name"])
 
 	// get available namespace todo: enterprise and group
 	allNamespace := getNamespace(userInfo)
@@ -83,8 +83,8 @@ func syncGitee(c *gcli.Command, args []string) error {
 
 	// select namespace and ask for ensure
 	selectedNp := allNamespace[numberD]
-	fmt.Printf("Selected %s(https://gitee.com/%s) as namespace, Type: %s \n" +
-		"The following projects will be generated on Gitee: \n", selectedNp[0], selectedNp[1], selectedNp[2])
+	color.Notice.Printf("\nSelected %s(https://gitee.com/%s) as namespace, Type: %s \n" +
+		"The following projects will be generated on Gitee: \n\n", selectedNp[0], selectedNp[1], selectedNp[2])
 
 	// show projects list and ensure
 	share.ShowProjectLists("gitee.com", repos, selectedNp[1])
@@ -93,24 +93,28 @@ func syncGitee(c *gcli.Command, args []string) error {
 	public := share.AskPublic(selectedNp[2])
 
 	// create projects
-	color.Green.Println("Creating Projects, Please Wait...")
+	fmt.Println("\n", "Creating Projects, Please Wait...")
 	repoRes := createProjects(repos, public, accessToken, selectedNp)
 
 	// show results
-	valid := showRepoRes(repoRes)
-	if !valid {
+	_, exiNum, errNum := showRepoRes(repoRes)
+
+	if errNum == len(repoRes) {
 		color.Red.Println("No repositories are available to be uploaded!")
 		return nil
 	}
-
-	// ask for exist and error details
-	asErr := share.AskError()
-	if asErr == "0" {
-		return nil
+	if errNum > 0 {
+		asErr := share.AskError()
+		if asErr == "0" {
+			return nil
+		}
 	}
-	asExi := share.AskExist()
-	if asExi == "0" {
-		return nil
+	var asExi string
+	if exiNum > 0 {
+		asExi = share.AskExist()
+		if asExi == "0" {
+			return nil
+		}
 	}
 
 	// available check
@@ -121,14 +125,14 @@ func syncGitee(c *gcli.Command, args []string) error {
 	}
 
 	// sync code
-	color.Green.Println("Syncing Projects to Gitee, Please Wait...")
+	color.Green.Println("\n", "Syncing Projects to Gitee, Please Wait...")
 	syncRes := multiSync(avaiRepo, auth, asExi)
 	showSyncRes(syncRes)
 	return nil
 }
 
 func askForAccount() (string, bool, *http.BasicAuth) {
-	email, _ := interact.ReadLine("Please enter your Gitee email: ")
+	email, _ := interact.ReadLine("\nPlease enter your Gitee email: ")
 	password := interact.ReadPassword("Please enter your Gitee password: ")
 	if len(email) == 0 || len(password) == 0 {
 		return "Email or Password must be provided!", false, nil
@@ -236,6 +240,7 @@ func createProjects(repos []string, public string, token string, np []string) []
 		step.Advance()
 	}
 	step.Finish()
+	fmt.Printf(SPL)
 	return repoRes
 }
 
@@ -273,22 +278,22 @@ func filterProjectResult(result map[string]interface{}, key string) (string, int
 	return "Unexpectedly exit", ERROR
 }
 
-func showRepoRes(repoRes []RepoResult) bool {
-	printRepo(repoRes, SUCCESS)
-	printRepo(repoRes, EXIST)
+func showRepoRes(repoRes []RepoResult) (int, int, int) {
+	success := printRepo(repoRes, SUCCESS)
+	exist := printRepo(repoRes, EXIST)
 	errNum := printRepo(repoRes, ERROR)
-	return errNum != len(repoRes)
+	return success, exist, errNum
 }
 
 func printRepo(repoRes []RepoResult, status int) int {
 	var p, result string
-	errorNum := 0
+	num := 0
 	repoStatus := repoStatus(status)
 	for _, item := range repoRes {
 		if item.status == status {
+			num = num + 1
 			if status == ERROR {
 				result = item.error
-				errorNum = errorNum + 1
 			} else {
 				result = item.uri
 			}
@@ -298,7 +303,7 @@ func printRepo(repoRes []RepoResult, status int) int {
 			fmt.Printf(SPL)
 		}
 	}
-	return errorNum
+	return num
 }
 
 func showSyncRes(syncRes []RepoResult) {
@@ -380,6 +385,7 @@ func multiSync(avaiRepo []RepoResult, auth *http.BasicAuth, force string) []Repo
 		step.Advance()
 	}
 	step.Finish()
+	fmt.Printf(SPL)
 	return syncRes
 }
 
