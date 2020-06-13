@@ -140,7 +140,7 @@ func syncGitee(c *gcli.Command, args []string) error {
 	}
 
 	// sync code
-	color.Green.Println("\n", "Syncing Projects to Gitee, Please Wait...")
+	fmt.Println("\n", "Syncing Projects to Gitee, Please Wait...")
 	syncRes := multiSync(avaiRepo, auth, asExi)
 	showSyncRes(syncRes)
 	return nil
