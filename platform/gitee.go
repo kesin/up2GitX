@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"up2GitX/share"
 
 	"github.com/gookit/gcli/v2"
@@ -27,6 +28,7 @@ const (
 	ERROR int   = 2
 	SKIP string = "1"
 	SPL string = "\n"
+	WORKER = 5
 )
 
 func GiteeCommand() *gcli.Command {
@@ -109,7 +111,7 @@ func syncGitee(c *gcli.Command, args []string) error {
 
 	// create projects
 	fmt.Println("\n", "Creating Projects, Please Wait...")
-	repoRes := createProjects(repos, public, accessToken, selectedNp)
+	repoRes := generateProjects(repos, public, accessToken, selectedNp)
 
 	// show results
 	_, exiNum, errNum := showRepoRes(repoRes)
@@ -225,38 +227,58 @@ func askNamespace(namespace []string) string {
 	return np
 }
 
-func createProjects(repos []string, public string, token string, np []string) []RepoResult {
-	repoUrl := getRepoUrl(np)
-	repoRes := make([]RepoResult, len(repos))
+func generateProjects(repos []string, public string, token string, np []string) (repoRes []RepoResult) {
 	step := progress.Bar(len(repos))
 	step.Start()
-	for i, repo := range repos { // todo: goroutine
-		paths := strings.Split(repo, "/")
-		path := paths[len(paths) - 1]
-		params := fmt.Sprintf(`{
+	var wg sync.WaitGroup
+	var mutex = &sync.Mutex{}
+	paths := make(chan string)
+	wg.Add(len(repos))
+	for w := 1; w <= WORKER; w++ {
+		go createProjectWorker(paths, public, token, np, &wg, &repoRes, mutex, step)
+	}
+	for _, p := range repos {
+		paths <- p
+	}
+	close(paths)
+	wg.Wait()
+	step.Finish()
+	fmt.Printf(SPL)
+	return repoRes
+}
+
+func createProjectWorker(paths chan string, public string, token string, np []string, wg *sync.WaitGroup, repoRes *[]RepoResult, mutex *sync.Mutex, step *progress.Progress) {
+	for path := range paths {
+		createProject(path, public, token, np, repoRes, wg, mutex)
+		step.Advance()
+		wg.Done()
+	}
+}
+
+func createProject(path string, public string, token string, np []string, repoRes *[]RepoResult, wg *sync.WaitGroup, mutex *sync.Mutex) {
+	repoUrl := getRepoUrl(np)
+	phs := strings.Split(path, "/")
+	repoPath := phs[len(phs) - 1]
+	params := fmt.Sprintf(`{
 					"access_token": "%s",
 					"name": "%s",
 					"path": "%s",
 					"private": "%s"
-					}`, token, path, path, public)
-		var paramsJson map[string]interface{}
-		json.Unmarshal([]byte(params), &paramsJson)
-		result, err := share.PostForm(repoUrl, paramsJson)
-		if err != nil {
-			return []RepoResult{}
-		}
-		uri, eType := filterProjectResult(result, "html_url")
-		errMsg := uri
-		if eType == EXIST {
-			uri = fmt.Sprintf("https://gitee.com/%s/%s.git", np[1], path)
-		}
-		repoRes[i] = RepoResult{local: repo, uri: uri, status: eType, error: errMsg}
-		i = i + 1
-		step.Advance()
+					}`, token, repoPath, repoPath, public)
+	var paramsJson map[string]interface{}
+	json.Unmarshal([]byte(params), &paramsJson)
+	result, err := share.PostForm(repoUrl, paramsJson)
+	if err != nil {
+		return
 	}
-	step.Finish()
-	fmt.Printf(SPL)
-	return repoRes
+	uri, eType := filterProjectResult(result, "html_url")
+	errMsg := uri
+	if eType == EXIST {
+		uri = fmt.Sprintf("https://gitee.com/%s/%s.git", np[1], repoPath)
+	}
+	mutex.Lock()
+	*repoRes = append(*repoRes, RepoResult{local: path, uri: uri, status: eType, error: errMsg})
+	mutex.Unlock()
 }
 
 func getRepoUrl(np []string) string {
