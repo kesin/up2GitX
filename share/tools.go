@@ -155,11 +155,11 @@ func getRepoLocal(repos []string) (reposLocal []RepoLocal) {
 
 func getRepoItemWorker(paths <- chan string, wp *sync.WaitGroup, reposLocal *[]RepoLocal, mutex *sync.Mutex) {
 	for path := range paths {
-		defer wp.Done()
 		size, outAlert, _ := repoSize(path)
 		mutex.Lock()
 		*reposLocal = append(*reposLocal, RepoLocal{path: path, sizeM: size, alert: outAlert})
 		mutex.Unlock()
+		wp.Done()
 	}
 }
 
