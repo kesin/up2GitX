@@ -229,20 +229,25 @@ func askNamespace(namespace []string) string {
 
 func generateProjects(repos []string, public string, token string, np []string) (repoRes []RepoResult) {
 	step := progress.Bar(len(repos))
-	step.Start()
 	var wg sync.WaitGroup
 	var mutex = &sync.Mutex{}
 	paths := make(chan string)
+
+	step.Start()
 	wg.Add(len(repos))
+
 	for w := 1; w <= WORKER; w++ {
 		go createProjectWorker(paths, public, token, np, &wg, &repoRes, mutex, step)
 	}
+
 	for _, p := range repos {
 		paths <- p
 	}
 	close(paths)
+
 	wg.Wait()
 	step.Finish()
+
 	fmt.Printf(SPL)
 	return repoRes
 }
@@ -406,11 +411,33 @@ func colorResult(status int, p string) {
 	}
 }
 
-func multiSync(avaiRepo []RepoResult, auth *http.BasicAuth, force string) []RepoResult {
-	var syncRes []RepoResult
+func multiSync(avaiRepo []RepoResult, auth *http.BasicAuth, force string) (syncRes []RepoResult) {
 	step := progress.Bar(len(avaiRepo))
+	var wg sync.WaitGroup
+	var mutex = &sync.Mutex{}
+	avais := make(chan RepoResult)
+
 	step.Start()
-	for _, item := range avaiRepo {
+	wg.Add(len(avaiRepo))
+
+	for w := 1; w <= WORKER; w++ {
+		go multiSyncWorker(avais, auth, force, &syncRes, &wg, mutex, step)
+	}
+
+	for _, p := range avaiRepo {
+		avais <- p
+	}
+	close(avais)
+
+	wg.Wait()
+	step.Finish()
+
+	fmt.Printf(SPL)
+	return syncRes
+}
+
+func multiSyncWorker(avais chan RepoResult, auth *http.BasicAuth, force string, syncRes *[]RepoResult, wg *sync.WaitGroup, mutex *sync.Mutex, step *progress.Progress) {
+	for item := range avais {
 		err := share.SyncRepo(auth, item.local, item.uri, force)
 		if err != nil {
 			item.status = ERROR
@@ -418,12 +445,10 @@ func multiSync(avaiRepo []RepoResult, auth *http.BasicAuth, force string) []Repo
 		} else {
 			item.status = SUCCESS
 		}
-		syncRes = append(syncRes, item)
+		*syncRes = append(*syncRes, item)
 		step.Advance()
+		wg.Done()
 	}
-	step.Finish()
-	fmt.Printf(SPL)
-	return syncRes
 }
 
 func availableRepo(repoRes []RepoResult, force string) []RepoResult {
