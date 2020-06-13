@@ -28,6 +28,10 @@ type RepoLocal struct {
 	error string
 }
 
+const (
+	WORKER = 5
+)
+
 func InvalidAlert(platform string) {
 	fmt.Printf("Tell me which repos source your want to sync, Usage: ")
 	color.Yellow.Printf("up2 %s /Users/Zoker/repos/ or up2 %s /Users/Zoker/repo.txt\n", platform, platform)
@@ -136,20 +140,27 @@ func printRepos(repos []string) {
 func getRepoLocal(repos []string) (reposLocal []RepoLocal) {
 	var wp sync.WaitGroup
 	var mutex = &sync.Mutex{}
-	for _, path := range repos {
-		wp.Add(1)
-		go getRepoItemWorker(path, &wp, &reposLocal, mutex)
+	paths := make(chan string)
+	wp.Add(len(repos))
+	for w := 1; w <= WORKER; w++ {
+		go getRepoItemWorker(paths, &wp, &reposLocal, mutex)
 	}
+	for _, p := range repos {
+		paths <- p
+	}
+	close(paths)
 	wp.Wait()
 	return reposLocal
 }
 
-func getRepoItemWorker(path string, wp *sync.WaitGroup, reposLocal *[]RepoLocal, mutex *sync.Mutex) {
-	defer wp.Done()
-	size, outAlert, _ := repoSize(path)
-	mutex.Lock()
-	*reposLocal = append(*reposLocal, RepoLocal{path: path, sizeM: size, alert: outAlert})
-	mutex.Unlock()
+func getRepoItemWorker(paths <- chan string, wp *sync.WaitGroup, reposLocal *[]RepoLocal, mutex *sync.Mutex) {
+	for path := range paths {
+		defer wp.Done()
+		size, outAlert, _ := repoSize(path)
+		mutex.Lock()
+		*reposLocal = append(*reposLocal, RepoLocal{path: path, sizeM: size, alert: outAlert})
+		mutex.Unlock()
+	}
 }
 
 func repoSize(path string) (float32, bool, error) {
