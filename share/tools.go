@@ -275,7 +275,7 @@ func AskPublic(npType string) string {
 		namespace = append(namespace, "Inner public (Only enterprise members can see this repository)")
 	}
 	fmt.Printf("\n")
-	ques := "Please choose this project's public type: (new projects will apply)"
+	ques := "Please choose those project's public type: (new projects will apply)"
 	public := selectOne(namespace, ques)
 	return public
 }

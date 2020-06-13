@@ -158,8 +158,8 @@ func askForAccount() (string, bool, *http.BasicAuth) {
 					"grant_type": "password",
 					"username": "%s",
 					"password": "%s",
-					"client_id": "xxxx",
-					"client_secret": "xxxx",
+					"client_id": "xxxx", // client id from Gitee
+					"client_secret": "xxxx", // client secret from Gitee
 					"scope": "user_info projects groups enterprises"
 					}`, email, password)
 
