@@ -135,18 +135,21 @@ func printRepos(repos []string) {
 
 func getRepoLocal(repos []string) (reposLocal []RepoLocal) {
 	var wp sync.WaitGroup
+	var mutex = &sync.Mutex{}
 	for _, path := range repos {
 		wp.Add(1)
-		go getRepoItemWorker(path, &wp, &reposLocal)
+		go getRepoItemWorker(path, &wp, &reposLocal, mutex)
 	}
 	wp.Wait()
 	return reposLocal
 }
 
-func getRepoItemWorker(path string, wp *sync.WaitGroup, reposLocal *[]RepoLocal) {
+func getRepoItemWorker(path string, wp *sync.WaitGroup, reposLocal *[]RepoLocal, mutex *sync.Mutex) {
 	defer wp.Done()
 	size, outAlert, _ := repoSize(path)
+	mutex.Lock()
 	*reposLocal = append(*reposLocal, RepoLocal{path: path, sizeM: size, alert: outAlert})
+	mutex.Unlock()
 }
 
 func repoSize(path string) (float32, bool, error) {
