@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gookit/color"
@@ -19,6 +20,13 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 )
+
+type RepoLocal struct {
+	path  string
+	sizeM  float32
+	alert  bool
+	error string
+}
 
 func InvalidAlert(platform string) {
 	fmt.Printf("Tell me which repos source your want to sync, Usage: ")
@@ -101,25 +109,44 @@ func isGitRepo(repoPath string) (isGit bool) {
 
 func printRepos(repos []string) {
 	color.Yellow.Println(len(repos), "repositories detected, please check below: ", "\n")
+
 	alertFlag := false
-	for i, repo := range repos { // todo goroutine
+	reposLocal := getRepoLocal(repos)
+
+	for i, repo := range reposLocal {
 		i = i + 1
-		p := fmt.Sprintf("%d. %s", i, repo)
+		p := fmt.Sprintf("%d. %s", i, repo.path)
 		fmt.Printf(p)
-		size, outAlert, _ := repoSize(repo)
-		alertFlag = alertFlag || outAlert
-		if outAlert {
-			color.Red.Printf(" %.2f", size)
-			color.Red.Println("M")
+		alertFlag = alertFlag || repo.alert
+		if repo.alert {
+			   color.Red.Printf(" %.2f", repo.sizeM)
+			   color.Red.Println("M")
 		} else {
-			color.Green.Printf(" %.2f", size)
-			color.Green.Println("M")
+			   color.Green.Printf(" %.2f", repo.sizeM)
+			   color.Green.Println("M")
 		}
+
 	}
 
 	if alertFlag {
 		color.Yellow.Println("Warning: some of your local repo is out of 1G, please make sure that you account have permission to sync repository that size more than 1G")
 	}
+}
+
+func getRepoLocal(repos []string) (reposLocal []RepoLocal) {
+	var wp sync.WaitGroup
+	for _, path := range repos {
+		wp.Add(1)
+		go getRepoItemWorker(path, &wp, &reposLocal)
+	}
+	wp.Wait()
+	return reposLocal
+}
+
+func getRepoItemWorker(path string, wp *sync.WaitGroup, reposLocal *[]RepoLocal) {
+	defer wp.Done()
+	size, outAlert, _ := repoSize(path)
+	*reposLocal = append(*reposLocal, RepoLocal{path: path, sizeM: size, alert: outAlert})
 }
 
 func repoSize(path string) (float32, bool, error) {
