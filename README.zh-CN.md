@@ -16,7 +16,9 @@
 
 ### 使用简介
 
-[下载](https://gitee.com/kesin/up2GitX/releases) 对应平台的二进制包，可直接运行
+下载对应平台的二进制包，可直接运行
+- [up2-macos-v1.0.0.zip](https://gitee.com/kesin/up2GitX/attach_files/414117/download)
+- [up2-linux-v1.0.0.zip](https://gitee.com/kesin/up2GitX/attach_files/414127/download)
 
 以 Gitee 为例 `./up2 gitee -h`
 
